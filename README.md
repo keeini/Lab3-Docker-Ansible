@@ -23,7 +23,7 @@ Check the API using this command:
 
 ## Deploy with Ansible
 
-With Ansible and the community.docker collected installed, run this:
+With Ansible and the community.docker collection installed, run this:
 - ansible-playbook -i inventory.ini deploy.yml -e http_port=8348
 
 Then, Check the deployed API:
