@@ -1,0 +1,46 @@
+- name: Deploy the Courses API locally
+  hosts: web
+  gather_facts: false
+  vars:
+    ansible_python_interpreter: "{{ ansible_playbook_python }}"
+    deploy_dir: "{{ playbook_dir }}/deployed"
+    http_port: 8086
+  tasks:
+    - name: Create the deployment directory
+      ansible.builtin.file:
+        path: "{{ deploy_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Copy application and configuration files
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/{{ item }}"
+        dest: "{{ deploy_dir }}/"
+        mode: preserve
+      loop:
+        - app
+        - nginx
+        - compose.yaml
+      register: project_files
+
+    - name: Set the deployment HTTP port
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/deploy.env.j2"
+        dest: "{{ deploy_dir }}/.env"
+        mode: "0644"
+
+    - name: Build when files change and start the stack
+      community.docker.docker_compose_v2:
+        project_src: "{{ deploy_dir }}"
+        project_name: courses-deployed
+        build: "{{ 'always' if project_files.changed else 'policy' }}"
+        state: present
+
+    - name: Wait for a healthy API response
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ http_port }}/health"
+        status_code: 200
+      register: api_health
+      until: (api_health.status | default(0)) == 200
+      retries: 15
+      delay: 2
